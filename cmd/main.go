@@ -41,6 +41,7 @@ func main() {
 		"version", version.Version,
 	)
 
+	// TODO: read config from file
 	httpServer := http.NewServer(http.Config{
 		Port:            8888,
 		ShutdownTimeout: time.Second,
@@ -55,5 +56,6 @@ func main() {
 		close(errCh)
 	}()
 
+	// TODO: handle signals (SIGTERM)
 	<-errCh
 }
