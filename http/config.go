@@ -21,7 +21,10 @@ package http
 
 import "time"
 
+// Config contains the configuration for the HTTP server
 type Config struct {
+	// Port defines the listening port of the HTTP server
 	Port            int `yaml:"port"`
+	// ShutdownTimeout defines the timeout to wait for the server to shut down gracefully
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
 }

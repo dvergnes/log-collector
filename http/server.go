@@ -28,6 +28,7 @@ import (
 	"go.uber.org/zap"
 )
 
+// Server is a HTTP server that implements the REST API to read events located in log files
 type Server struct {
 	config Config
 	server *http.Server
@@ -35,6 +36,7 @@ type Server struct {
 	logger *zap.Logger
 }
 
+// NewServer creates a Server with the given Config
 func NewServer(config Config, parentLogger *zap.Logger) *Server {
 	router := routes()
 	return &Server{
@@ -46,6 +48,7 @@ func NewServer(config Config, parentLogger *zap.Logger) *Server {
 	}
 }
 
+// Start starts the HTTP server on the port defined in Config
 func (s *Server) Start() error {
 	addr := fmt.Sprintf(":%d", s.config.Port)
 	ln, err := net.Listen("tcp", addr)
@@ -60,6 +63,8 @@ func (s *Server) Start() error {
 	return nil
 }
 
+// Stop stops the HTTP server. It waits up to the timeout defined by Config.ShutdownTimeout. After this delay, the HTTP
+// server is stopped forcibly.
 func (s *Server) Stop() {
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), s.config.ShutdownTimeout)
 	defer cancel()
