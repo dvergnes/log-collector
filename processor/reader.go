@@ -38,7 +38,16 @@ func IsConcurrentAccessError(err error) bool {
 
 // TailReader reads a file from the end to the start of the file. Once created if the file is modified, the next Read
 // call will return an error.
-type TailReader struct {
+type TailReader interface {
+	io.Reader
+	io.Closer
+	// SeekToEnd updates the offset of the TailReader towards the end of file. It basically rewinds the reader by the given
+	// offset.
+	SeekToEnd(offset int64)
+}
+
+// tailReader implements TailReader interface
+type tailReader struct {
 	fs afero.Fs
 
 	file    afero.File
@@ -47,8 +56,8 @@ type TailReader struct {
 	offsetFromEnd int64
 }
 
-// NewTailReader creates a TailReader for the given file in parameters
-func NewTailReader(fs afero.Fs, name string) (*TailReader, error) {
+// NewTailReader creates a tailReader for the given file in parameters
+func NewTailReader(fs afero.Fs, name string) (TailReader, error) {
 	file, err := fs.Open(name)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open file %w", err)
@@ -57,7 +66,7 @@ func NewTailReader(fs afero.Fs, name string) (*TailReader, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &TailReader{
+	return &tailReader{
 		fs:      fs,
 		file:    file,
 		modTime: stat.ModTime(),
@@ -74,9 +83,9 @@ func readFileStat(file afero.File) (os.FileInfo, error) {
 
 // Read reads a file from the end to the start.
 // Each call gets closer to the start. Once the entire file is read io.EOF is returned.
-// If the file is modified since the TailReader is created an error is returned on the next call to Read.
+// If the file is modified since the tailReader is created an error is returned on the next call to Read.
 // It implements io.Reader interface.
-func (tr *TailReader) Read(buf []byte) (int, error) {
+func (tr *tailReader) Read(buf []byte) (int, error) {
 	stat, err := readFileStat(tr.file)
 	if err != nil {
 		return 0, err
@@ -107,11 +116,11 @@ func (tr *TailReader) Read(buf []byte) (int, error) {
 
 // SeekToEnd updates the offset of the TailReader towards the end of file. It basically rewinds the reader by the given
 // offset.
-func (tr *TailReader) SeekToEnd(offset int64) {
+func (tr *tailReader) SeekToEnd(offset int64) {
 	tr.offsetFromEnd -= offset
 }
 
 // Close closes the reader and the file that it reads. Any subsequent call to Read will return an error.
-func (tr *TailReader) Close() error {
+func (tr *tailReader) Close() error {
 	return tr.file.Close()
 }

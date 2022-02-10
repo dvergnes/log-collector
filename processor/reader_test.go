@@ -34,7 +34,7 @@ var _ = Describe("Reader", func() {
 
 	var (
 		fs         afero.Fs
-		tailReader *processor.TailReader
+		tailReader processor.TailReader
 		setUp = func(content string) afero.File {
 			f, err := afero.TempFile(fs, "ut", "file.log")
 			Expect(err).ShouldNot(HaveOccurred())
