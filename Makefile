@@ -15,3 +15,7 @@ gotidy:
 .PHONY: gomoddownload
 gomoddownload:
 	go mod download
+
+.PHONY: gotest
+gotest:
+	@set -e; go test $(GOTAGS) -timeout 4m ${PKGS}
