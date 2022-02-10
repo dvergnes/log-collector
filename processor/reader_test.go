@@ -35,6 +35,15 @@ var _ = Describe("Reader", func() {
 	var (
 		fs         afero.Fs
 		tailReader *processor.TailReader
+		setUp = func(content string) afero.File {
+			f, err := afero.TempFile(fs, "ut", "file.log")
+			Expect(err).ShouldNot(HaveOccurred())
+			_, err = f.WriteString(content)
+			Expect(err).ShouldNot(HaveOccurred())
+			tailReader, err = processor.NewTailReader(fs, f.Name())
+			Expect(err).ShouldNot(HaveOccurred())
+			return f
+		}
 	)
 
 	BeforeEach(func() {
@@ -55,15 +64,6 @@ var _ = Describe("Reader", func() {
 			buf   = make([]byte, 10)
 			n     = 0
 			err   error
-			setUp = func(content string) afero.File {
-				f, err := afero.TempFile(fs, "ut", "file.log")
-				Expect(err).ShouldNot(HaveOccurred())
-				_, err = f.WriteString(content)
-				Expect(err).ShouldNot(HaveOccurred())
-				tailReader, err = processor.NewTailReader(fs, f.Name())
-				Expect(err).ShouldNot(HaveOccurred())
-				return f
-			}
 		)
 
 		AfterEach(func() {
@@ -137,6 +137,25 @@ abcdefghi
 	})
 
 	Describe("SeekToEnd", func() {
+			buf := make([]byte, 13)
+		BeforeEach(func() {
+			setUp(`
+123456789
+abcdefghi
+`)
+			_, err := tailReader.Read(buf)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(buf).Should(Equal([]byte("89\nabcdefghi\n")))
+		})
 
+		JustBeforeEach(func() {
+			tailReader.SeekToEnd(2)
+		})
+
+		It("should unread 2 bytes so that next read is on event boundary", func() {
+			n, err := tailReader.Read(buf)
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(buf[:n]).Should(Equal([]byte("\n123456789")))
+		})
 	})
 })
