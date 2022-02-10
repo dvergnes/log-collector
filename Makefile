@@ -19,3 +19,6 @@ gomoddownload:
 .PHONY: gotest
 gotest:
 	@set -e; go test $(GOTAGS) -timeout 4m ${PKGS}
+
+mock:
+	mockery --dir processor --name TailReader --case underscore
