@@ -24,6 +24,10 @@ import (
 	"fmt"
 )
 
+type EventProcessor interface {
+	Next() (string, error)
+}
+
 type EventBreaker struct {
 	buf    []byte
 	offset int
