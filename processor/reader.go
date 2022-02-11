@@ -29,12 +29,8 @@ import (
 	"github.com/spf13/afero"
 )
 
-var concurrentAccessErr = errors.New("file has been modified since the tail reader was opened")
-
-// IsConcurrentAccessError checks if the error is concurrent access on an opened file
-func IsConcurrentAccessError(err error) bool {
-	return err == concurrentAccessErr
-}
+// ConcurrentAccessErr indicates that a file has been modified while the tail reader was reading it
+var ConcurrentAccessErr = errors.New("file has been modified since the tail reader was opened")
 
 // TailReader reads a file from the end to the start of the file. Once created if the file is modified, the next Read
 // call will return an error.
@@ -91,7 +87,7 @@ func (tr *tailReader) Read(buf []byte) (int, error) {
 		return 0, err
 	}
 	if tr.modTime.UnixNano() != stat.ModTime().UnixNano() {
-		return 0, concurrentAccessErr
+		return 0, fmt.Errorf("%w", ConcurrentAccessErr)
 	}
 
 	size := stat.Size()

@@ -20,6 +20,7 @@
 package processor_test
 
 import (
+	"errors"
 	"io"
 	"time"
 
@@ -130,7 +131,7 @@ abcdefghi
 			})
 
 			It("should return an error", func() {
-				Expect(err).Should(Satisfy(processor.IsConcurrentAccessError))
+				Expect(errors.Is(err,processor.ConcurrentAccessErr)).Should(BeTrue())
 			})
 		})
 
