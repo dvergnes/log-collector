@@ -63,7 +63,7 @@ event_2
 					copy(buf, content)
 					return true
 				})).Return(len(content), nil).Once()
-				reader.On("SeekToEnd", int64(16))
+				reader.On("SeekToEnd", uint32(16))
 			})
 			It("should return events one by one", func() {
 				e1, err := eventBreaker.Next()

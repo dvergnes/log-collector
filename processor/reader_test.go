@@ -138,25 +138,50 @@ abcdefghi
 	})
 
 	Describe("SeekToEnd", func() {
-			buf := make([]byte, 13)
+		var (
+			buf = make([]byte, 13)
+			offset uint32
+		)
 		BeforeEach(func() {
 			setUp(`
 123456789
 abcdefghi
 `)
-			_, err := tailReader.Read(buf)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(buf).Should(Equal([]byte("89\nabcdefghi\n")))
 		})
-
 		JustBeforeEach(func() {
-			tailReader.SeekToEnd(2)
+			tailReader.SeekToEnd(offset)
 		})
 
-		It("should unread 2 bytes so that next read is on event boundary", func() {
-			n, err := tailReader.Read(buf)
-			Expect(err).ShouldNot(HaveOccurred())
-			Expect(buf[:n]).Should(Equal([]byte("\n123456789")))
+		When("snapping to event boundary", func() {
+
+			BeforeEach(func() {
+				_, err := tailReader.Read(buf)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(buf).Should(Equal([]byte("89\nabcdefghi\n")))
+				offset = 2
+			})
+
+			It("should unread 2 bytes so that next read is on event boundary", func() {
+				n, err := tailReader.Read(buf)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(buf[:n]).Should(Equal([]byte("\n123456789")))
+			})
+		})
+
+		When("offset toward the end is greater than the reader offset", func() {
+			BeforeEach(func() {
+				n, err := tailReader.Read(buf[:3])
+				Expect(n).Should(Equal(3))
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(buf[:n]).Should(Equal([]byte("hi\n")))
+				offset = 50
+			})
+
+			It("should reset the reader offset", func() {
+				_, err := tailReader.Read(buf)
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(buf).Should(Equal([]byte("89\nabcdefghi\n")))
+			})
 		})
 	})
 })

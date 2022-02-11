@@ -80,7 +80,7 @@ func (eb *EventBreaker) fillBuffer() (int, error) {
 	}
 
 	// rewind reader so that next read will be on boundary
-	eb.reader.SeekToEnd(int64(advance))
+	eb.reader.SeekToEnd(uint32(advance))
 	eb.offset += advance
 	eb.length = n
 	return n, nil

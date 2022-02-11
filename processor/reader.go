@@ -39,7 +39,7 @@ type TailReader interface {
 	io.Closer
 	// SeekToEnd updates the offset of the TailReader towards the end of file. It basically rewinds the reader by the given
 	// offset.
-	SeekToEnd(offset int64)
+	SeekToEnd(offset uint32)
 }
 
 // tailReader implements TailReader interface
@@ -112,8 +112,12 @@ func (tr *tailReader) Read(buf []byte) (int, error) {
 
 // SeekToEnd updates the offset of the TailReader towards the end of file. It basically rewinds the reader by the given
 // offset.
-func (tr *tailReader) SeekToEnd(offset int64) {
-	tr.offsetFromEnd -= offset
+func (tr *tailReader) SeekToEnd(offset uint32) {
+	if int64(offset) >= tr.offsetFromEnd {
+		tr.offsetFromEnd = 0
+		return
+	}
+	tr.offsetFromEnd -= int64(offset)
 }
 
 // Close closes the reader and the file that it reads. Any subsequent call to Read will return an error.
