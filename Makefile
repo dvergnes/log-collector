@@ -22,3 +22,4 @@ gotest:
 
 mock:
 	mockery --dir processor --name TailReader --case underscore
+	mockery --dir processor --name EventProcessor --case underscore

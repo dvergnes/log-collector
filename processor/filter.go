@@ -24,10 +24,19 @@ import "io"
 type limitEventProcessor struct {
 	delegate EventProcessor
 
-	nbEventProcessed int
-	limit            int
+	nbEventProcessed uint
+	limit            uint
 }
 
+// WithLimit decorates an EventProcessor to apply a limit on the maximum number of events that it can return
+func WithLimit(processor EventProcessor, limit uint) EventProcessor {
+	return &limitEventProcessor{
+		delegate: processor,
+		limit:    limit,
+	}
+}
+
+// Next implements EventProcessor contract
 func (l *limitEventProcessor) Next() (string, error) {
 	if l.nbEventProcessed >= l.limit {
 		return "", io.EOF
@@ -40,18 +49,30 @@ func (l *limitEventProcessor) Next() (string, error) {
 	return next, err
 }
 
-type filterEventProcessor struct {
-	delegate  EventProcessor
-	predicate func(string) bool
+// EventFilter verifies that an event matches a condition. It returns true if the event passes the check
+type EventFilter func(string) bool
+
+// WithFilter decorates an EventProcessor to apply a predicate that must validate the event to return it
+func WithFilter(processor EventProcessor, filter EventFilter) EventProcessor {
+	return &filterEventProcessor{
+		delegate: processor,
+		predicate: filter,
+	}
 }
 
+type filterEventProcessor struct {
+	delegate  EventProcessor
+	predicate EventFilter
+}
+
+// Next implements EventProcessor contract
 func (f *filterEventProcessor) Next() (string, error) {
 	for {
 		next, err := f.delegate.Next()
 		if err != nil {
 			return next, err
 		}
-		if !f.predicate(next) {
+		if f.predicate(next) {
 			return next, err
 		}
 	}

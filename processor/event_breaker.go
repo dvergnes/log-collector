@@ -24,10 +24,13 @@ import (
 	"fmt"
 )
 
+// EventProcessor defines an iterator that process an event
 type EventProcessor interface {
+	// Next returns an event as a string. It returns io.EOF if no more event will be returned
 	Next() (string, error)
 }
 
+// EventBreaker is responsible to identify events in an array of bytes read from a io.Reader
 type EventBreaker struct {
 	buf    []byte
 	offset int
@@ -37,14 +40,17 @@ type EventBreaker struct {
 	splitter bufio.SplitFunc
 }
 
-func NewEventBreaker(reader TailReader, splitter bufio.SplitFunc, capacity int) *EventBreaker {
+// NewEventBreaker creates a new EventBreaker that reads from the passed TailReader with a buffer of the given bufferSize.
+// It generates events by applying the passed bufio.SplitFunc.
+func NewEventBreaker(reader TailReader, splitter bufio.SplitFunc, bufferSize int) *EventBreaker {
 	return &EventBreaker{
-		buf:      make([]byte, capacity),
+		buf:      make([]byte, bufferSize),
 		reader:   reader,
 		splitter: splitter,
 	}
 }
 
+// Next implements EventProcessor contract
 func (eb *EventBreaker) Next() (string, error) {
 	// if buffer is empty, fill the buffer
 	if eb.offset >= eb.length {
