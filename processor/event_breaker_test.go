@@ -20,7 +20,6 @@
 package processor_test
 
 import (
-	"bufio"
 	"bytes"
 	"errors"
 	"io"
@@ -41,7 +40,7 @@ var _ = Describe("EventBreaker", func() {
 
 	BeforeEach(func() {
 		reader = &mocks.TailReader{}
-		eventBreaker = processor.NewEventBreaker(reader, bufio.ScanLines, 35)
+		eventBreaker = processor.NewEventBreaker(reader, processor.ReverseScanLines, 35)
 	})
 
 	AfterEach(func() {
@@ -66,12 +65,53 @@ var _ = Describe("EventBreaker", func() {
 				reader.On("Read", mock.MatchedBy(func(buf []byte) bool {
 					copy(buf, content)
 					return true
-				})).Return(len(content), nil).Once()
+				})).Return(len(content), nil).Twice()
+				reader.On("SeekToEnd", uint32(len(content)))
 			})
-			It("should return whatever was there", func() {
+			It("should return whatever was read", func() {
 				e1, err := eventBreaker.Next()
 				Expect(err).ShouldNot(HaveOccurred())
 				Expect(e1).Should(Equal(content))
+			})
+		})
+
+		When("there are empty events", func() {
+			BeforeEach(func() {
+				content := bytes.Buffer{}
+				content.WriteString("event_1")
+				for i := 0; i < 40; i++ {
+					content.WriteByte('\n')
+				}
+				content.WriteString("event_2")
+				content.Bytes()
+				n := content.Len()
+				call := 0
+				reader.On("Read", mock.MatchedBy(func(buf []byte) bool {
+					b := content.Bytes()
+					if call == 0 {
+						copy(buf, b[n-len(buf):n])
+					} else {
+						copy(buf, b[:n-len(buf)])
+					}
+					call++
+					return true
+				})).Return(func(b []byte) int {
+					if call <= 1 {
+						return len(b)
+					} else {
+						return n - len(b)
+					}
+				}, nil).Times(3)
+				reader.On("SeekToEnd", uint32(len("event_1")))
+			})
+			It("should skip the empty events", func() {
+				e1, err := eventBreaker.Next()
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(e1).Should(Equal("event_2"))
+
+				e2, err := eventBreaker.Next()
+				Expect(err).ShouldNot(HaveOccurred())
+				Expect(e2).Should(Equal("event_1"))
 			})
 		})
 
@@ -85,25 +125,25 @@ event_2
 					copy(buf, content)
 					return true
 				})).Return(len(content), nil).Once()
-				reader.On("SeekToEnd", uint32(16))
+				//reader.On("SeekToEnd", uint32(16))
 			})
-			It("should return events one by one", func() {
+			It("should return events one by one in reverse order", func() {
 				e1, err := eventBreaker.Next()
 				Expect(err).ShouldNot(HaveOccurred())
-				Expect(e1).Should(Equal("event_1"))
+				Expect(e1).Should(Equal("event_2"))
 
 				e2, err := eventBreaker.Next()
 				Expect(err).ShouldNot(HaveOccurred())
-				Expect(e2).Should(Equal("event_2"))
+				Expect(e2).Should(Equal("event_1"))
+
 			})
 		})
 
 		When("buffer is empty after reading all available events", func() {
 			var (
-				chunk2 = "event_spanning_over_chunks\n"
+				chunk2 = "event_spanning_over_chunks"
 				chunk1 = `anning_over_chunks
-event_1
-`
+event_1`
 				chunkIdx = 0
 			)
 
@@ -123,7 +163,7 @@ event_1
 						return len(chunk2)
 					}
 				}, nil).Twice()
-				reader.On("SeekToEnd", uint32(len("anning_over_chunks\n")))
+				reader.On("SeekToEnd", uint32(len("anning_over_chunks")))
 			})
 			It("should fill buffer by calling the reader where it left off", func() {
 				e1, err := eventBreaker.Next()
@@ -142,48 +182,25 @@ event_1
 				criticalError = errors.New("oops")
 			)
 
-			When("splitter returns an error while searching for the event boundary", func() {
-
-				BeforeEach(func() {
-					reader.On("Read", mock.MatchedBy(func(buf []byte) bool {
-						copy(buf, content)
-						return true
-					})).Return(len(content), nil).Once()
-					eventBreaker = processor.NewEventBreaker(reader, func([]byte, bool) (int, []byte, error) {
-						return 0, nil, criticalError
-					}, 35)
-				})
-
-				It("should propagate the error", func() {
-					e1, err := eventBreaker.Next()
-					Expect(err).Should(MatchError(criticalError))
-					Expect(e1).Should(BeEmpty())
-				})
-			})
-
 			When("splitter returns an error while breaking the events", func() {
-				call := 0
+
 				BeforeEach(func() {
 					reader.On("Read", mock.MatchedBy(func(buf []byte) bool {
 						copy(buf, content)
 						return true
 					})).Return(len(content), nil).Once()
-					reader.On("SeekToEnd", uint32(6))
-
 					eventBreaker = processor.NewEventBreaker(reader, func([]byte, bool) (int, []byte, error) {
-						if call == 0 {
-							call++
-							return len("start\n"), []byte("start"), nil
-						}
 						return 0, nil, criticalError
 					}, 35)
 				})
+
 				It("should propagate the error", func() {
 					e1, err := eventBreaker.Next()
 					Expect(err).Should(MatchError(criticalError))
 					Expect(e1).Should(BeEmpty())
 				})
 			})
+
 		})
 	})
 })

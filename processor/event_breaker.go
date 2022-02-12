@@ -24,6 +24,23 @@ import (
 	"fmt"
 )
 
+var ReverseScanLines = func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+	n := len(data) - 1
+	for i := n; i >= 0; i-- {
+		c := data[i]
+		if c == '\n' {
+			// TODO: drop CR
+			return advance + 1, data[n+1-advance : n+1], nil
+		} else {
+			advance++
+		}
+	}
+	if atEOF {
+		return advance, data[:n+1], nil
+	}
+	return 0, nil, nil
+}
+
 // EventProcessor defines an iterator that process an event
 type EventProcessor interface {
 	// Next returns an event as a string. It returns io.EOF if no more event will be returned
@@ -33,8 +50,8 @@ type EventProcessor interface {
 // EventBreaker is responsible to identify events in an array of bytes read from a io.Reader
 type EventBreaker struct {
 	buf    []byte
-	offset int
 	length int
+	end    int
 
 	reader   TailReader
 	splitter bufio.SplitFunc
@@ -52,51 +69,65 @@ func NewEventBreaker(reader TailReader, splitter bufio.SplitFunc, bufferSize int
 
 // Next implements EventProcessor contract
 func (eb *EventBreaker) Next() (string, error) {
-	// if buffer is empty, fill the buffer
-	if eb.offset >= eb.length {
-		err := eb.fillBuffer()
-		if err != nil {
+	// search for next event separator
+	advance, token, err := eb.nextEvent(false)
+	if err != nil {
+		return "", err
+	}
+
+	// if we cannot make progress, we try to continue to read the reader so that we can find an event boundary
+	if advance == 0 {
+		// we rewind the reader for the partial event we were reading to be on event boundary
+		eb.reader.SeekToEnd(uint32(eb.end))
+		if err := eb.fillBuffer(); err != nil {
 			return "", err
 		}
+		// this time we try to find event boundary and return anything that was in the buffer
+		advance, token, err = eb.nextEvent(true)
+		if err != nil {
+			return "", fmt.Errorf("failed to split event %w", err)
+		}
 	}
-
-	if eb.offset >= eb.length {
-		eb.offset = 0
-	}
-
-	// search for next event separator
-	advance, token, err := eb.splitter(eb.buf[eb.offset:eb.length], true)
-	if err != nil {
-		return "", fmt.Errorf("failed to split event %w", err)
-	}
-	eb.offset += advance
 
 	// return the event
 	return string(token), nil
 
 }
 
+func (eb *EventBreaker) nextEvent(atEOF bool) (int, []byte, error) {
+	for {
+		// if buffer is empty, fill the buffer
+		if eb.length <= 0 {
+			err := eb.fillBuffer()
+			if err != nil {
+				return 0, nil, err
+			}
+		}
+		advance, token, err := eb.splitter(eb.buf[:eb.end], atEOF)
+		if err != nil {
+			return 0, nil, fmt.Errorf("failed to split event %w", err)
+		}
+		// if the splitter cannot make progress we return immediately
+		if advance == 0 {
+			return advance, token, err
+		}
+		eb.length -= advance
+		eb.end -= advance
+		// if the token is empty, we want to continue to process the buffer
+		if len(token) != 0 {
+			return advance, token, nil
+		}
+	}
+
+}
+
 func (eb *EventBreaker) fillBuffer() error {
-	eb.offset = 0
 	n, err := eb.reader.Read(eb.buf)
 	if err != nil {
 		return err
 	}
-
-	// search for the line separator
-	advance, _, err := eb.splitter(eb.buf[:n], true)
-	if err != nil {
-		return fmt.Errorf("failed to find first event separator %w", err)
-	}
-	eb.offset += advance
 	eb.length = n
+	eb.end = n
 
-	// if we consume the buffer entirely there is nothing to rewind
-	if advance == n {
-		return nil
-	}
-
-	// rewind reader so that next read will be on event boundary
-	eb.reader.SeekToEnd(uint32(advance))
 	return nil
 }
