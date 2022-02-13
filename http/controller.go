@@ -131,7 +131,7 @@ func logHandler(fs afero.Fs, config Config, parentLogger *zap.Logger) func(http.
 			limit = config.MaxEvents
 		}
 
-		path := config.LogFolder + name
+		path := filepath.Join(config.LogFolder, name)
 		if err := checkFile(fs, path); err != nil {
 			if httpErr, ok := err.(httpError); ok {
 				writeErrorResponse(w, httpErr.httpStatus, errorResponse{
