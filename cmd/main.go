@@ -46,12 +46,12 @@ func main() {
 	flag.Parse()
 	data, err := ioutil.ReadFile(*confFile)
 	if err != nil {
-		log.Fatalf("failed to read configuration file %+v", err)
+		sugar.Fatal("failed to read configuration file", zap.Error(err))
 	}
 	fs := afero.NewOsFs()
 	conf, err := http.LoadConfig(data, fs)
 	if err != nil {
-		log.Fatalf("failed to parse configuration %+v", err)
+		sugar.Fatal("failed to parse configuration file", zap.Error(err))
 	}
 
 	httpServer := http.NewServer(conf, fs, logger)
