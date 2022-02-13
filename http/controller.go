@@ -161,7 +161,7 @@ func logHandler(fs afero.Fs, config *Config, parentLogger *zap.Logger) func(http
 		defer reader.Close()
 
 		filter := query.Get("filter")
-		logger.Sugar().Info("processing file",
+		logger.Sugar().Infow("processing file",
 			"file", path,
 			"filter", filter,
 			"limit", limit)
