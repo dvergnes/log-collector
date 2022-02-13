@@ -24,7 +24,13 @@ import "time"
 // Config contains the configuration for the HTTP server
 type Config struct {
 	// Port defines the listening port of the HTTP server
-	Port            int `yaml:"port"`
+	Port int `yaml:"port"`
 	// ShutdownTimeout defines the timeout to wait for the server to shut down gracefully
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
+	// LogFolder defines the folder that contains the log files to read
+	LogFolder string `yaml:"log_folder"`
+	// BufferSize defines the size in bytes of the buffer used to read the log file
+	BufferSize int `yaml:"buffer_size"`
+	// MaxEvents defines the maximum number of events returned. That means the limit applies after filter is applied.
+	MaxEvents  uint `yaml:"max_events"`
 }

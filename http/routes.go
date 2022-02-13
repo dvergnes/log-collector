@@ -24,14 +24,18 @@ import (
 	"net/http"
 
 	"github.com/julienschmidt/httprouter"
+	"github.com/spf13/afero"
+	"go.uber.org/zap"
 )
 
 func Index(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 	fmt.Fprint(w, "Welcome!\n")
 }
 
-func routes() *httprouter.Router {
+func routes(fs afero.Fs, config Config, logger *zap.Logger) *httprouter.Router {
 	router := httprouter.New()
+	logger.Named("router").Info("installing http handlers")
 	router.GET("/", Index)
+	router.GET("/log", logHandler(fs, config, logger))
 	return router
 }

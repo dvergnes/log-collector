@@ -25,6 +25,7 @@ import (
 	"net"
 	"net/http"
 
+	"github.com/spf13/afero"
 	"go.uber.org/zap"
 )
 
@@ -37,8 +38,8 @@ type Server struct {
 }
 
 // NewServer creates a Server with the given Config
-func NewServer(config Config, parentLogger *zap.Logger) *Server {
-	router := routes()
+func NewServer(config Config, fs afero.Fs, parentLogger *zap.Logger) *Server {
+	router := routes(fs, config, parentLogger)
 	return &Server{
 		config: config,
 		logger: parentLogger.Named("http-server"),

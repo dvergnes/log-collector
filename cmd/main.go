@@ -20,6 +20,7 @@
 package main
 
 import (
+	"github.com/spf13/afero"
 	"log"
 	"time"
 
@@ -45,7 +46,10 @@ func main() {
 	httpServer := http.NewServer(http.Config{
 		Port:            8888,
 		ShutdownTimeout: time.Second,
-	}, logger)
+		LogFolder:       "/Users/dvergnes/repos/log-collector/log/",
+		MaxEvents: 10_000,
+		BufferSize: 4096,
+	}, afero.NewOsFs(), logger)
 
 	errCh := make(chan error, 1)
 	go func() {
