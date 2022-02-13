@@ -51,8 +51,7 @@ type EventProcessor interface {
 // EventBreaker is responsible to identify events in an array of bytes read from a io.Reader
 type EventBreaker struct {
 	buf    []byte
-	length int
-	end    int
+	pos    int
 
 	reader   TailReader
 	splitter bufio.SplitFunc
@@ -79,7 +78,7 @@ func (eb *EventBreaker) Next() (string, error) {
 	// if we cannot make progress, we try to continue to read the reader so that we can find an event boundary
 	if advance == 0 {
 		// we rewind the reader for the partial event we were reading to be on event boundary
-		eb.reader.SeekToEnd(uint32(eb.end))
+		eb.reader.SeekToEnd(uint32(eb.pos))
 		if err := eb.fillBuffer(); err != nil {
 			return "", err
 		}
@@ -98,13 +97,13 @@ func (eb *EventBreaker) Next() (string, error) {
 func (eb *EventBreaker) nextEvent(atEOF bool) (int, []byte, error) {
 	for {
 		// if buffer is empty, fill the buffer
-		if eb.length <= 0 {
+		if eb.pos <= 0 {
 			err := eb.fillBuffer()
 			if err != nil {
 				return 0, nil, err
 			}
 		}
-		advance, token, err := eb.splitter(eb.buf[:eb.end], atEOF)
+		advance, token, err := eb.splitter(eb.buf[:eb.pos], atEOF)
 		if err != nil {
 			return 0, nil, fmt.Errorf("failed to split event %w", err)
 		}
@@ -112,8 +111,7 @@ func (eb *EventBreaker) nextEvent(atEOF bool) (int, []byte, error) {
 		if advance == 0 {
 			return advance, token, err
 		}
-		eb.length -= advance
-		eb.end -= advance
+		eb.pos -= advance
 		// if the token is empty, we want to continue to process the buffer
 		if len(token) != 0 {
 			return advance, token, nil
@@ -127,8 +125,7 @@ func (eb *EventBreaker) fillBuffer() error {
 	if err != nil {
 		return err
 	}
-	eb.length = n
-	eb.end = n
+	eb.pos = n
 
 	return nil
 }
