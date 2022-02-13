@@ -126,7 +126,7 @@ var _ = Describe("Controller", func() {
 		BeforeEach(func() {
 			fs = afero.NewMemMapFs()
 			Expect(fs.MkdirAll(logFolder, 0755)).Should(Succeed())
-			h = http.LogHandler(fs, http.Config{
+			h = http.LogHandler(fs, &http.Config{
 				BufferSize: 1024,
 				LogFolder:  logFolder,
 				MaxEvents:  2,

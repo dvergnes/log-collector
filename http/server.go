@@ -31,14 +31,14 @@ import (
 
 // Server is a HTTP server that implements the REST API to read events located in log files
 type Server struct {
-	config Config
+	config *Config
 	server *http.Server
 
 	logger *zap.Logger
 }
 
 // NewServer creates a Server with the given Config
-func NewServer(config Config, fs afero.Fs, parentLogger *zap.Logger) *Server {
+func NewServer(config *Config, fs afero.Fs, parentLogger *zap.Logger) *Server {
 	router := routes(fs, config, parentLogger)
 	return &Server{
 		config: config,

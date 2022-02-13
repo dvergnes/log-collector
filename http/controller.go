@@ -105,7 +105,7 @@ func checkFile(fs afero.Fs, path string) error {
 	return nil
 }
 
-func logHandler(fs afero.Fs, config Config, parentLogger *zap.Logger) func(http.ResponseWriter, *http.Request, httprouter.Params) {
+func logHandler(fs afero.Fs, config *Config, parentLogger *zap.Logger) func(http.ResponseWriter, *http.Request, httprouter.Params) {
 	logger := parentLogger.Named("log-handler")
 	return func(w http.ResponseWriter, request *http.Request, params httprouter.Params) {
 		query := request.URL.Query()
@@ -198,7 +198,7 @@ func processFile(p processor.EventProcessor) ([]string, error) {
 	return acc, nil
 }
 
-func createProcessor(reader processor.TailReader, config Config, filter string, limit uint) processor.EventProcessor {
+func createProcessor(reader processor.TailReader, config *Config, filter string, limit uint) processor.EventProcessor {
 	p := processor.EventProcessor(processor.NewEventBreaker(reader, processor.ReverseScanLines, config.BufferSize))
 	if len(filter) != 0 {
 		predicate := func(s string) bool {

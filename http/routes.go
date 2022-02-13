@@ -32,7 +32,7 @@ func index(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 	fmt.Fprint(w, "Welcome!\n")
 }
 
-func routes(fs afero.Fs, config Config, logger *zap.Logger) *httprouter.Router {
+func routes(fs afero.Fs, config *Config, logger *zap.Logger) *httprouter.Router {
 	router := httprouter.New()
 	logger.Named("router").Info("installing http handlers")
 	router.GET("/", index)

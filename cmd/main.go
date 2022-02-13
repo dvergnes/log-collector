@@ -20,12 +20,12 @@
 package main
 
 import (
-	"github.com/spf13/afero"
-	"log"
-	"time"
-
+	"flag"
 	"github.com/dvergnes/log-collector/http"
 	"github.com/dvergnes/log-collector/internal/version"
+	"github.com/spf13/afero"
+	"io/ioutil"
+	"log"
 
 	"go.uber.org/zap"
 )
@@ -42,14 +42,19 @@ func main() {
 		"version", version.Version,
 	)
 
-	// TODO: read config from file
-	httpServer := http.NewServer(http.Config{
-		Port:            8888,
-		ShutdownTimeout: time.Second,
-		LogFolder:       "/Users/dvergnes/repos/log-collector/log/",
-		MaxEvents: 10_000,
-		BufferSize: 4096,
-	}, afero.NewOsFs(), logger)
+	confFile := flag.String("config", "config.yml", "configuration file for the log collector")
+	flag.Parse()
+	data, err := ioutil.ReadFile(*confFile)
+	if err != nil {
+		log.Fatalf("failed to read configuration file %+v", err)
+	}
+	fs := afero.NewOsFs()
+	conf, err := http.LoadConfig(data, fs)
+	if err != nil {
+		log.Fatalf("failed to parse configuration %+v", err)
+	}
+
+	httpServer := http.NewServer(conf, fs, logger)
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -61,5 +66,8 @@ func main() {
 	}()
 
 	// TODO: handle signals (SIGTERM)
-	<-errCh
+	err = <-errCh
+	if err != nil {
+		log.Fatalf("failed to start http server %+v", err)
+	}
 }
