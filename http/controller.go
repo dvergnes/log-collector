@@ -20,7 +20,7 @@
 package http
 
 import (
-	"errors"
+	"context"
 	"fmt"
 	"io"
 	"net/http"
@@ -37,11 +37,19 @@ import (
 
 func validateFileParameter(file string) error {
 	if len(file) == 0 {
-		return errors.New("file name must not be empty")
+		return httpError{
+			code: invalidParameter,
+			details: "file name must not be empty",
+			httpStatus: http.StatusBadRequest,
+		}
 	}
 	basename := filepath.Base(file)
 	if basename != file {
-		return errors.New("file name must not contain any relative or absolute path reference")
+		return httpError{
+			code: invalidParameter,
+			details: "file name must not contain any relative or absolute path reference",
+			httpStatus: http.StatusBadRequest,
+		}
 	}
 	return nil
 }
@@ -52,13 +60,25 @@ func parseLimit(max uint, limit string) (uint, error) {
 	}
 	l, err := strconv.Atoi(limit)
 	if err != nil {
-		return 0, errors.New("limit is not a valid integer")
+		return 0, httpError{
+			code: invalidParameter,
+			details: "limit is not a valid integer",
+			httpStatus: http.StatusBadRequest,
+		}
 	}
 	if l <= 0 {
-		return 0, errors.New("limit must be strictly positive")
+		return 0, httpError{
+			code: invalidParameter,
+			details: "limit must be strictly positive",
+			httpStatus: http.StatusBadRequest,
+		}
 	}
 	if uint(l) > max {
-		return 0, fmt.Errorf("limit must be equal or less than %d", max)
+		return 0, httpError{
+			code: invalidParameter,
+			details: fmt.Sprintf("limit must be equal or less than %d", max),
+			httpStatus: http.StatusBadRequest,
+		}
 	}
 	return uint(l), nil
 }
@@ -112,19 +132,13 @@ func logHandler(fs afero.Fs, config *Config, parentLogger *zap.Logger) func(http
 		name := query.Get("file")
 		err := validateFileParameter(name)
 		if err != nil {
-			writeErrorResponse(w, http.StatusBadRequest, errorResponse{
-				Code:    invalidParameter,
-				Details: err.Error(),
-			}, logger)
+			handleError(w, err, logger)
 			return
 		}
 
 		limit, err := parseLimit(config.MaxEvents, query.Get("limit"))
 		if err != nil {
-			writeErrorResponse(w, http.StatusBadRequest, errorResponse{
-				Code:    invalidParameter,
-				Details: err.Error(),
-			}, logger)
+			handleError(w, err, logger)
 			return
 		}
 		if limit == 0 {
@@ -133,28 +147,15 @@ func logHandler(fs afero.Fs, config *Config, parentLogger *zap.Logger) func(http
 
 		path := filepath.Join(config.LogFolder, name)
 		if err := checkFile(fs, path); err != nil {
-			if httpErr, ok := err.(httpError); ok {
-				writeErrorResponse(w, httpErr.httpStatus, errorResponse{
-					Code:    httpErr.code,
-					Details: httpErr.details,
-				}, logger)
-			} else {
-				logger.Error("failed to verify that file can be processed", zap.Error(err))
-				writeErrorResponse(w, http.StatusInternalServerError, errorResponse{
-					Code:    internalError,
-					Details: internalErrorDetails,
-				}, logger)
-			}
+			logger.Error("failed to verify that file can be processed", zap.Error(err))
+			handleError(w, err, logger)
 			return
 		}
 
 		reader, err := processor.NewTailReader(fs, path)
 		if err != nil {
 			logger.Error("failed to open reader", zap.Error(err))
-			writeErrorResponse(w, http.StatusInternalServerError, errorResponse{
-				Code:    internalError,
-				Details: err.Error(),
-			}, logger)
+			handleError(w, err, logger)
 			return
 		}
 		defer reader.Close()
@@ -166,13 +167,10 @@ func logHandler(fs afero.Fs, config *Config, parentLogger *zap.Logger) func(http
 			"limit", limit)
 		p := createProcessor(reader, config, filter, limit)
 
-		events, err := processFile(p)
+		events, err := processFile(request.Context(), p)
 		if err != nil {
 			logger.Error("failed to process file", zap.Error(err))
-			writeErrorResponse(w, http.StatusInternalServerError, errorResponse{
-				Code:    internalError,
-				Details: err.Error(),
-			}, logger)
+			handleError(w, err, logger)
 			return
 		}
 		writeResponse(w, logResponse{
@@ -183,9 +181,33 @@ func logHandler(fs afero.Fs, config *Config, parentLogger *zap.Logger) func(http
 	}
 }
 
-func processFile(p processor.EventProcessor) ([]string, error) {
+func handleError(w http.ResponseWriter, err error, logger *zap.Logger) {
+	if httpErr, ok := err.(httpError); ok {
+		writeErrorResponse(w, httpErr.httpStatus, errorResponse{
+			Code:    httpErr.code,
+			Details: httpErr.details,
+		}, logger)
+	} else {
+		writeErrorResponse(w, http.StatusInternalServerError, errorResponse{
+			Code:    internalError,
+			Details: internalErrorDetails,
+		}, logger)
+	}
+}
+
+func processFile(ctx context.Context, p processor.EventProcessor) ([]string, error) {
 	var acc []string
 	for {
+		select {
+		case <-ctx.Done():
+			return nil, httpError{
+				code:       requestCanceled,
+				details:    "client canceled request",
+				httpStatus: http.StatusBadRequest,
+			}
+		default:
+		}
+
 		s, err := p.Next()
 		if err != nil && err != io.EOF {
 			return nil, err

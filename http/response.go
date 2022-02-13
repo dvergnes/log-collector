@@ -29,6 +29,7 @@ import (
 const (
 	invalidParameter = "invalid.parameter"
 	internalError    = "internal.error"
+	requestCanceled  = "request.canceled"
 )
 
 const internalErrorDetails = "Oops, try again later. If the problem persist, please contact your administrator"

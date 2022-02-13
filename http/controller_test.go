@@ -20,6 +20,7 @@
 package http_test
 
 import (
+	"context"
 	"encoding/json"
 	"io"
 	gohttp "net/http"
@@ -188,6 +189,28 @@ var _ = Describe("Controller", func() {
 				Entry("filter is applied", []string{"limit=2", "filter=HEAD"}, []string{
 				`128.84.140.215 - 0000001 [05/Oct/2020:10:32:51 -0800] "HEAD /web_assets/flash/runner/Leaderboard1_v04.swf HTTP/1.1" 200 - "http://sourceforge.net/forum/forum.php?forum_id=544686" "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1; Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.1; SV1) ; .NET CLR 1.1.4322; InfoPath.2)" "128.84.140.215.6087629394390023"`}),
 			)
+		})
+
+		When("request is canceled", func() {
+
+			It("should stop processing and return an error", func() {
+				req := httptest.NewRequest("GET", "http://localhost:8888/log?file=foo.log", nil)
+				ctx, cancel := context.WithCancel(req.Context())
+				req = req.WithContext(ctx)
+				cancel()
+				w := httptest.NewRecorder()
+
+				h(w, req, httprouter.Params{})
+
+				resp := w.Result()
+				Expect(resp.Header.Get("Content-Type")).Should(Equal("application/json"))
+				body, _ := io.ReadAll(resp.Body)
+				err := http.ErrorResponse{}
+				Expect(json.Unmarshal(body, &err)).Should(Succeed())
+				Expect(resp.StatusCode).Should(Equal(gohttp.StatusBadRequest))
+				Expect(err.Code).Should(Equal("request.canceled"))
+				Expect(err.Details).Should(Equal("client canceled request"))
+			})
 		})
 	})
 
