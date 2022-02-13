@@ -94,7 +94,6 @@ func logHandler(fs afero.Fs, config Config, parentLogger *zap.Logger) func(http.
 			return
 		}
 		reader, err := processor.NewTailReader(fs, path)
-		defer reader.Close()
 		if err != nil {
 			logger.Error("failed to open reader", zap.Error(err))
 			writeErrorResponse(w, http.StatusInternalServerError, errorResponse{
@@ -103,6 +102,7 @@ func logHandler(fs afero.Fs, config Config, parentLogger *zap.Logger) func(http.
 			}, logger)
 			return
 		}
+		defer reader.Close()
 
 		filter := query.Get("filter")
 		logger.Sugar().Info("processing file",
