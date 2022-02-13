@@ -63,6 +63,48 @@ func parseLimit(max uint, limit string) (uint, error) {
 	return uint(l), nil
 }
 
+type httpError struct {
+	code       string
+	details    string
+	httpStatus int
+}
+
+func (err httpError) Error() string {
+	return err.details
+}
+
+var internalErr = httpError{
+	code:       internalError,
+	httpStatus: http.StatusInternalServerError,
+	details:    internalErrorDetails,
+}
+
+func checkFile(fs afero.Fs, path string) error {
+	exist, err := afero.Exists(fs, path)
+	if err != nil {
+		return internalErr
+	}
+	if !exist {
+		return httpError{
+			code:       invalidParameter,
+			httpStatus: http.StatusNotFound,
+			details:    fmt.Sprintf("file %s was not found", path),
+		}
+	}
+	isDir, err := afero.IsDir(fs, path)
+	if err != nil {
+		return internalErr
+	}
+	if isDir {
+		return httpError{
+			code:       invalidParameter,
+			httpStatus: http.StatusBadRequest,
+			details:    fmt.Sprintf("file %s is a directory", path),
+		}
+	}
+	return nil
+}
+
 func logHandler(fs afero.Fs, config Config, parentLogger *zap.Logger) func(http.ResponseWriter, *http.Request, httprouter.Params) {
 	logger := parentLogger.Named("log-handler")
 	return func(w http.ResponseWriter, request *http.Request, params httprouter.Params) {
@@ -90,9 +132,22 @@ func logHandler(fs afero.Fs, config Config, parentLogger *zap.Logger) func(http.
 		}
 
 		path := config.LogFolder + name
-		if !isFileValid(w, fs, path, name, logger) {
+		if err := checkFile(fs, path); err != nil {
+			if httpErr, ok := err.(httpError); ok {
+				writeErrorResponse(w, httpErr.httpStatus, errorResponse{
+					Code:    httpErr.code,
+					Details: httpErr.details,
+				}, logger)
+			} else {
+				logger.Error("failed to verify that file can be processed", zap.Error(err))
+				writeErrorResponse(w, http.StatusInternalServerError, errorResponse{
+					Code:    internalError,
+					Details: internalErrorDetails,
+				}, logger)
+			}
 			return
 		}
+
 		reader, err := processor.NewTailReader(fs, path)
 		if err != nil {
 			logger.Error("failed to open reader", zap.Error(err))
@@ -153,38 +208,4 @@ func createProcessor(reader processor.TailReader, config Config, filter string, 
 	}
 	p = processor.WithLimit(p, limit)
 	return p
-}
-
-func isFileValid(w http.ResponseWriter, fs afero.Fs, path string, name string, logger *zap.Logger) bool {
-	exist, err := afero.Exists(fs, path)
-	if err != nil {
-		writeErrorResponse(w, http.StatusInternalServerError, errorResponse{
-			Code:    internalError,
-			Details: internalErrorDetails,
-		}, logger)
-		return false
-	}
-	if !exist {
-		writeErrorResponse(w, http.StatusNotFound, errorResponse{
-			Code:    invalidParameter,
-			Details: fmt.Sprintf("File %s was not found", name),
-		}, logger)
-		return false
-	}
-	isDir, err := afero.IsDir(fs, path)
-	if err != nil {
-		writeErrorResponse(w, http.StatusInternalServerError, errorResponse{
-			Code:    internalError,
-			Details: internalErrorDetails,
-		}, logger)
-		return false
-	}
-	if isDir {
-		writeErrorResponse(w, http.StatusBadRequest, errorResponse{
-			Code:    invalidParameter,
-			Details: fmt.Sprintf("File %s is a directory", name),
-		}, logger)
-		return false
-	}
-	return true
 }
