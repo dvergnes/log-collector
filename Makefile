@@ -7,6 +7,8 @@ GOARCH=$(shell go env GOARCH)
 
 PKGS=$(shell go list ./...)
 
+RUN_CONFIG?=config/config.yml
+
 .PHONY: gotidy
 gotidy:
 	rm -fr go.sum
@@ -23,3 +25,7 @@ gotest:
 mock:
 	mockery --dir processor --name TailReader --case underscore
 	mockery --dir processor --name EventProcessor --case underscore
+
+.PHONY: run
+run:
+	GO111MODULE=on go run --race ./cmd/... --config=${RUN_CONFIG}
