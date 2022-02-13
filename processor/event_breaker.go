@@ -24,6 +24,7 @@ import (
 	"fmt"
 )
 
+// ReverseScanLines is similar to bufio.ScanLines except that it scans the bytes from right to left
 var ReverseScanLines = func(data []byte, atEOF bool) (advance int, token []byte, err error) {
 	n := len(data) - 1
 	for i := n; i >= 0; i-- {
