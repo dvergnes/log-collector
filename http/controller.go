@@ -52,13 +52,13 @@ func parseLimit(max uint, limit string) (uint, error) {
 	}
 	l, err := strconv.Atoi(limit)
 	if err != nil {
-		return 0, errors.New("limit is not an invalid integer")
+		return 0, errors.New("limit is not a valid integer")
 	}
 	if l <= 0 {
 		return 0, errors.New("limit must be strictly positive")
 	}
 	if uint(l) > max {
-		return 0, fmt.Errorf("limit must be less or equal than %d", max)
+		return 0, fmt.Errorf("limit must be equal or less than %d", max)
 	}
 	return uint(l), nil
 }
