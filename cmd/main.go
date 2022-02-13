@@ -26,6 +26,9 @@ import (
 	"github.com/spf13/afero"
 	"io/ioutil"
 	"log"
+	"os"
+	"os/signal"
+	"syscall"
 
 	"go.uber.org/zap"
 )
@@ -65,9 +68,13 @@ func main() {
 		close(errCh)
 	}()
 
-	// TODO: handle signals (SIGTERM)
-	err = <-errCh
-	if err != nil {
-		log.Fatalf("failed to start http server %+v", err)
+	c := make(chan os.Signal, 1)
+	signal.Notify(c, os.Interrupt, syscall.SIGTERM, syscall.SIGQUIT)
+
+	select {
+	case <-c:
+		httpServer.Stop()
+	case err = <-errCh:
+		sugar.Fatal("failed to start http server", zap.Error(err))
 	}
 }
