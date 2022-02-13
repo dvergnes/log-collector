@@ -28,14 +28,14 @@ import (
 	"go.uber.org/zap"
 )
 
-func Index(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
+func index(w http.ResponseWriter, _ *http.Request, _ httprouter.Params) {
 	fmt.Fprint(w, "Welcome!\n")
 }
 
 func routes(fs afero.Fs, config Config, logger *zap.Logger) *httprouter.Router {
 	router := httprouter.New()
 	logger.Named("router").Info("installing http handlers")
-	router.GET("/", Index)
+	router.GET("/", index)
 	router.GET("/log", logHandler(fs, config, logger))
 	return router
 }
