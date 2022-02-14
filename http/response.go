@@ -23,6 +23,8 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"github.com/dvergnes/log-collector/api"
+
 	"go.uber.org/zap"
 )
 
@@ -34,12 +36,7 @@ const (
 
 const internalErrorDetails = "Oops, try again later. If the problem persist, please contact your administrator"
 
-type errorResponse struct {
-	Code    string `json:"code"`
-	Details string `json:"details"`
-}
-
-func writeErrorResponse(w http.ResponseWriter, httpCode int, resp errorResponse, logger *zap.Logger) {
+func writeErrorResponse(w http.ResponseWriter, httpCode int, resp api.ErrorResponse, logger *zap.Logger) {
 	payload, err := json.Marshal(resp)
 	if err != nil {
 		logger.Error("failed to serialize error response", zap.Error(err))
@@ -52,12 +49,9 @@ func writeErrorResponse(w http.ResponseWriter, httpCode int, resp errorResponse,
 	}
 }
 
-type logResponse struct {
-	File   string   `json:"file"`
-	Events []string `json:"events"`
-}
 
-func writeResponse(w http.ResponseWriter, resp logResponse, logger *zap.Logger) {
+
+func writeResponse(w http.ResponseWriter, resp api.LogResponse, logger *zap.Logger) {
 	payload, err := json.Marshal(resp)
 	if err != nil {
 		logger.Error("failed to serialize response", zap.Error(err))

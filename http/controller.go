@@ -28,6 +28,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/dvergnes/log-collector/api"
 	"github.com/dvergnes/log-collector/processor"
 
 	"github.com/julienschmidt/httprouter"
@@ -173,7 +174,7 @@ func logHandler(fs afero.Fs, config *Config, parentLogger *zap.Logger) func(http
 			handleError(w, err, logger)
 			return
 		}
-		writeResponse(w, logResponse{
+		writeResponse(w, api.LogResponse{
 			File:   path,
 			Events: events,
 		}, logger)
@@ -183,12 +184,12 @@ func logHandler(fs afero.Fs, config *Config, parentLogger *zap.Logger) func(http
 
 func handleError(w http.ResponseWriter, err error, logger *zap.Logger) {
 	if httpErr, ok := err.(httpError); ok {
-		writeErrorResponse(w, httpErr.httpStatus, errorResponse{
+		writeErrorResponse(w, httpErr.httpStatus, api.ErrorResponse{
 			Code:    httpErr.code,
 			Details: httpErr.details,
 		}, logger)
 	} else {
-		writeErrorResponse(w, http.StatusInternalServerError, errorResponse{
+		writeErrorResponse(w, http.StatusInternalServerError, api.ErrorResponse{
 			Code:    internalError,
 			Details: internalErrorDetails,
 		}, logger)

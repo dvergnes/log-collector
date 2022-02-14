@@ -17,12 +17,20 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-package http
+package api
 
-var (
-	ValidateFileParameter = validateFileParameter
-	ParseLimit            = parseLimit
-	CheckFile             = checkFile
+// ErrorResponse defines the response returned by the server in case of errors
+type ErrorResponse struct {
+	// Code is a string that identifies the error
+	Code    string `json:"code"`
+	// Details gives more information about the error
+	Details string `json:"details"`
+}
 
-	LogHandler = logHandler
-)
+// LogResponse defines the response returned by the server when the file can be processed successfully
+type LogResponse struct {
+	// File indicates the source of the events
+	File   string   `json:"file"`
+	// Events contain the events that are extracted from the file after processing
+	Events []string `json:"events"`
+}

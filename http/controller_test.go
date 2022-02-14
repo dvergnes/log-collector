@@ -27,6 +27,7 @@ import (
 	"net/http/httptest"
 	"strings"
 
+	"github.com/dvergnes/log-collector/api"
 	"github.com/dvergnes/log-collector/http"
 
 	"github.com/julienschmidt/httprouter"
@@ -151,7 +152,7 @@ var _ = Describe("Controller", func() {
 				resp := w.Result()
 				Expect(resp.Header.Get("Content-Type")).Should(Equal("application/json"))
 				body, _ := io.ReadAll(resp.Body)
-				err := http.ErrorResponse{}
+				err := api.ErrorResponse{}
 				Expect(json.Unmarshal(body, &err)).Should(Succeed())
 				Expect(resp.StatusCode).Should(Equal(gohttp.StatusBadRequest))
 				Expect(err.Code).Should(Equal("invalid.parameter"))
@@ -175,7 +176,7 @@ var _ = Describe("Controller", func() {
 				resp := w.Result()
 				Expect(resp.Header.Get("Content-Type")).Should(Equal("application/json"))
 				body, _ := io.ReadAll(resp.Body)
-				lr := http.LogResponse{}
+				lr := api.LogResponse{}
 				Expect(json.Unmarshal(body, &lr)).Should(Succeed())
 				Expect(resp.StatusCode).Should(Equal(gohttp.StatusOK))
 				Expect(lr.File).Should(Equal("/var/log/foo.log"))
@@ -205,7 +206,7 @@ var _ = Describe("Controller", func() {
 				resp := w.Result()
 				Expect(resp.Header.Get("Content-Type")).Should(Equal("application/json"))
 				body, _ := io.ReadAll(resp.Body)
-				err := http.ErrorResponse{}
+				err := api.ErrorResponse{}
 				Expect(json.Unmarshal(body, &err)).Should(Succeed())
 				Expect(resp.StatusCode).Should(Equal(gohttp.StatusBadRequest))
 				Expect(err.Code).Should(Equal("request.canceled"))
